@@ -3,6 +3,7 @@ const {Firestore} = require('@google-cloud/firestore');
 
 const axios = require('axios');
 const line = require('@line/bot-sdk');
+const Twitter = require('twitter');
 const db = new Firestore();
 
 // 変数初期化
@@ -65,14 +66,12 @@ const readFireStore = async (id) => {
   }
 }
 
-const setFireStore = async (id) => {
+const setFireStore = async (id, data) => {
   try {
-
     const doc = await db
       .collection(channelId)
       .doc(id)
-      .set();
-    return doc.data();
+      .update(data);
 
   } catch (error) {
     console.error(error);
@@ -83,7 +82,7 @@ const setFireStore = async (id) => {
   }
 }
 
-const createMessage = (NewArrival) => {
+const createLineMessage = (NewArrival) => {
   const payload = [];
   NewArrival.forEach((item) => {
     payload.push({
@@ -166,7 +165,38 @@ const createMessage = (NewArrival) => {
   return payload;
 };
 
-broadcastMessage = async (payload) => {
+const createTwitterMessage = (NewArrival) => {
+  const payload = [];
+  NewArrival.forEach((item) => {
+    payload.push({
+      title: item.Title,
+      data: {
+        status: `配信枠ができたよ〜ん\nタイトル: ${item.Title}\nURL: ${item.IdUrl}`,
+      },
+    })
+  });
+  return payload;
+};
+
+tweetMessage = async (payload) => {
+  const config = {
+    consumer_key: credential.TW_APIKEY,
+    consumer_secret: credential.TW_APISECRET,
+    access_token_key: credential.TW_TOKEN,
+    access_token_secret: credential.TW_SECRET,
+  };
+  const tw = new Twitter(config);
+
+  await Promise.all(payload.map(async item => {
+    try {
+      tw.post('statuses/update', item.data);
+    } catch (err) {
+      console.log(err)
+    }
+  }));
+};
+
+broadcastLineMessage = async (payload) => {
   const client = new line.Client({
     channelSecret: credential.LINE_SECRET,
     channelAccessToken: credential.LINE_TOKEN,
@@ -206,14 +236,15 @@ exports.main = functions.https.onRequest(async (request, response) => {
   // const NewArrival = [lives.result[0]];
 
   if (NewArrival.length !== 0) {
-    const messagePayload = createMessage(NewArrival);
-    console.log(messagePayload)
-    await broadcastMessage(messagePayload);
+    const LinePayload = createLineMessage(NewArrival);
+    await broadcastLineMessage(LinePayload);
+    const TwitterPayload = createTwitterMessage(NewArrival);
+    await tweetMessage(TwitterPayload);
 
     // 最新枠の日時を抽出
     const latestTimeFromFetch = lives.result.map(live => live.time).sort()[0];
     // DBに情報書き込む
-    // const storeResult = await setFireStore('liveInfo', { latestDate: latestTimeFromFetch });
+    await setFireStore('liveInfo', { latestDate: latestTimeFromFetch });
   }
 
   response.send("OK!");
