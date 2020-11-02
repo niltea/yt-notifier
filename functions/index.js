@@ -32,11 +32,10 @@ const getUpcomingLive = async () => {
       result: lives,
     };
 
-  } catch (error) {
-    console.error(error);
+  } catch (res) {
     return {
       isSuccess: false,
-      result: error,
+      result: res.response.data,
     };
   }
 };
@@ -50,7 +49,11 @@ const readFireStore = async (id) => {
     if (!doc.exists) {
       return {
         isSuccess: false,
-        result: 'No such document!',
+        result: {
+          latestDate: {
+            toDate: () => { return new Date('2020/1/1 0:00'); }
+          }
+        },
       };
     }
     return {
@@ -58,7 +61,6 @@ const readFireStore = async (id) => {
       result: doc.data(),
     };
   } catch (error) {
-    console.error(error);
     return {
       isSuccess: false,
       result: error,
@@ -72,7 +74,7 @@ const setFireStore = async (id, data) => {
       .collection(channelId)
       .doc(id)
       .update(data);
-
+    return true;
   } catch (error) {
     console.error(error);
     return {
@@ -191,7 +193,7 @@ tweetMessage = async (payload) => {
     try {
       tw.post('statuses/update', item.data);
     } catch (err) {
-      console.log(err)
+      console.log(err);
     }
   }));
 };
@@ -218,17 +220,17 @@ broadcastLineMessage = async (payload) => {
 exports.main = functions.https.onRequest(async (request, response) => {
   // YouTubeから配信情報を取得
   const lives = await getUpcomingLive();
-  // if (lives.isSuccess === false) {
-  //   // Fetch失敗時の処理
-  //   response.send("failed!");
-  //   return
-  // }
+  if (lives.isSuccess === false) {
+    // Fetch失敗時の処理
+    response.send(lives.result.error);
+    return false;
+  }
 
   // DBから情報読んでくる
   const liveInfo = await readFireStore('liveInfo');
   if (liveInfo.isSuccess === false) {
     // Fetch失敗時の処理
-    response.send('false reading liveInfo');
+    response.send('failed to read FireStore');
     return false;
   }
   const latestTime = liveInfo.result.latestDate.toDate();
