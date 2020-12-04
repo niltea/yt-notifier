@@ -141,6 +141,27 @@ const createFleetLineMessage = (NewArrival) => {
             },
           ],
           "paddingAll": "none"
+        },
+        "footer": {
+          "type": "box",
+          "layout": "vertical",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "button",
+              "style": "link",
+              "height": "sm",
+              "action": {
+                "type": "uri",
+                "label": "リンク ＞",
+                "uri": item.media_url
+              },
+              "color": "#ffffff"
+            }
+          ],
+          "flex": 0,
+          "paddingAll": "none",
+          "backgroundColor": "#17c950"
         }
       },
     });
@@ -348,7 +369,7 @@ exports.main = functions.region('asia-northeast1').pubsub.schedule('every 1 minu
     console.log('前回と同じ配信枠だったしFleetの新着もないな……')
     response.send('前回と同じ配信枠だったしFleetの新着もないな……');
     return;
-  } else if (!latestLiveIDFromStore === liveID.result) {
+  } else if (latestLiveIDFromStore !== liveID.result) {
     // 配信情報の取得
     const liveFromID = await getUpcomingLiveInfo(liveID.result);
     if (liveFromID.isSuccess === false) {
@@ -363,7 +384,7 @@ exports.main = functions.region('asia-northeast1').pubsub.schedule('every 1 minu
         return;
       }
       const LinePayload = createLineMessage([liveFromID.result]);
-      await broadcastLineMessage(LinePayload, `新しい枠ができたよ〜ん ⇒${message.title}`);
+      await broadcastLineMessage(LinePayload, `新しい枠ができたよ〜ん ⇒${liveFromID.result.Title}`);
       const TwitterPayload = createTwitterMessage([liveFromID.result]);
       await tweetMessage(TwitterPayload);
       writeDBFlag = true;
