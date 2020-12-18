@@ -1,5 +1,6 @@
 .DS_Store
 .idea
+.envrc
 node_modules
 ui-debug.log
 firebase-debug.log
